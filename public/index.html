@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wedding Budget</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --surface-2: #f3f2ee;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --accent: #8a5a44;          /* warm brand tone for chrome only, never data */
+    --series-1: #2a78d6;        /* spent */
+    --series-2: #eb6834;        /* received */
+    --track: #e7ecf5;
+    --good-ink: #006300;
+    --critical: #d03b3b;
+    --warning: #fab219;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+      --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+      --accent: #d9a88f; --series-1: #3987e5; --series-2: #d95926; --track: #22303f;
+      --good-ink: #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --surface-2: #232321;
+    --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --accent: #d9a88f; --series-1: #3987e5; --series-2: #d95926; --track: #22303f;
+    --good-ink: #0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+  .eyebrow { color: var(--accent); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+  h1 { margin: 4px 0 0; font-size: 28px; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-2); margin-top: 4px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button, .btn {
+    font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  button:hover, .btn:hover { background: var(--surface-2); }
+  button.primary { background: var(--ink); color: var(--page); border-color: transparent; }
+  button.primary:hover { opacity: .88; }
+  button.ghost { border-color: transparent; background: transparent; color: var(--ink-2); padding: 4px 8px; }
+  button.ghost:hover { background: var(--surface-2); color: var(--ink); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card h2 { margin: 0 0 4px; font-size: 15px; }
+  .card .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 16px; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr)); gap: 12px; margin-bottom: 12px; }
+  .kpi .label { color: var(--ink-2); font-size: 13px; }
+  .kpi .value { font-size: 26px; font-weight: 650; letter-spacing: -0.01em; margin-top: 6px; }
+  .kpi .foot { color: var(--muted); font-size: 12.5px; margin-top: 6px; }
+  .meter { height: 8px; background: var(--track); border-radius: 4px; margin-top: 10px; overflow: hidden; }
+  .meter > span { display: block; height: 100%; background: var(--series-1); border-radius: 4px; }
+  .meter.over > span { background: var(--critical); }
+  .status-critical { color: var(--critical); font-weight: 600; }
+  .status-good { color: var(--good-ink); font-weight: 600; }
+
+  .grid2 { display: grid; grid-template-columns: 1.05fr 1fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .kpis > *, .grid2 > * { min-width: 0; }
+  @media (max-width: 520px) { .kpi .value { font-size: 22px; } .wrap { padding-inline: 16px; } h1 { font-size: 24px; } }
+
+  /* Budget vs actual bars */
+  .bars { display: flex; flex-direction: column; gap: 14px; }
+  .bar-row .top { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .bar-row .name { font-weight: 550; }
+  .bar-row .nums { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bar-track { position: relative; height: 10px; background: var(--track); border-radius: 4px; margin-top: 6px; }
+  .bar-fill { position: absolute; inset: 0 auto 0 0; background: var(--series-1); border-radius: 4px; min-width: 3px; }
+  .bar-row.over .bar-fill { background: var(--critical); }
+  .bar-row.nobudget .bar-track { background: transparent; border-top: 1px dashed var(--axis); height: 10px; border-radius: 0; }
+  .bar-row.nobudget .bar-fill { background: var(--muted); }
+  .bar-row .tag { font-size: 12px; margin-left: 6px; }
+  .empty { color: var(--muted); padding: 24px 0; text-align: center; }
+
+  /* Line chart */
+  .chart-box { position: relative; }
+  .legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+  svg text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tooltip {
+    position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--border);
+    box-shadow: 0 6px 20px rgba(0,0,0,.12); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; white-space: nowrap; z-index: 5;
+  }
+  .tooltip .t { color: var(--muted); margin-bottom: 4px; }
+  .tooltip .r { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+  .tooltip .sw { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Table */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; min-width: 160px; }
+  input, select {
+    font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; width: 100%;
+  }
+  .toolbar select, .toolbar input { width: auto; }
+  .toolbar .grow input { width: 100%; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 7px 12px; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 8px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:hover td { background: var(--surface-2); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; }
+  .amt-in { color: var(--good-ink); }
+  .meta { color: var(--muted); font-size: 12px; }
+  .thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); display: block; }
+  .row-actions { white-space: nowrap; }
+
+  dialog { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--ink); padding: 0; width: min(520px, calc(100vw - 32px)); }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  dialog form { padding: 20px; display: grid; gap: 12px; }
+  dialog h3 { margin: 0; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fields label, .budget-list label { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
+  .fields .full { grid-column: 1 / -1; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .budget-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 55vh; overflow: auto; padding-right: 4px; }
+  @media (max-width: 520px) { .fields, .budget-list { grid-template-columns: 1fr; } }
+  .live { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+  .wa-banner { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; border-color: var(--accent); }
+  .wa-banner img { width: 220px; height: 220px; border-radius: 10px; background: #fff; padding: 8px; }
+  .wa-banner ol { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); }
+  .live.wa-off::before { background: var(--warning); }
+  .live::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #0ca30c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Wedding Budget</div>
+      <h1 id="title">Our Wedding</h1>
+      <div class="sub" id="countdown"></div>
+    </div>
+    <div class="actions">
+      <span class="live" id="live">Live</span>
+      <span class="live" id="wa-pill" hidden></span>
+      <button id="btn-settings">Settings</button>
+      <button id="btn-budgets">Edit budgets</button>
+      <a class="btn" href="/api/export.csv">Export CSV</a>
+      <button class="primary" id="btn-add">+ Add entry</button>
+    </div>
+  </header>
+
+  <section class="card wa-banner" id="wa-banner" hidden></section>
+  <section class="kpis" id="kpis"></section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2>Budget vs spent</h2>
+      <p class="hint">Per category, sorted by amount spent. Dashed line = no budget set yet.</p>
+      <div class="bars" id="bars"></div>
+    </div>
+    <div class="card">
+      <h2>Money over time</h2>
+      <p class="hint">Cumulative totals by payment date.</p>
+      <div class="legend">
+        <span><i style="background:var(--series-1)"></i>Spent</span>
+        <span><i style="background:var(--series-2)"></i>Received (angpao &amp; contributions)</span>
+      </div>
+      <div class="chart-box" id="line"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>All entries</h2>
+    <p class="hint">Everything sent to the WhatsApp group lands here. Click a row's ✎ to fix a category or amount.</p>
+    <div class="toolbar">
+      <div class="seg" role="group" aria-label="Type">
+        <button data-kind="all" aria-pressed="true">All</button>
+        <button data-kind="expense" aria-pressed="false">Spent</button>
+        <button data-kind="income" aria-pressed="false">Received</button>
+      </div>
+      <select id="f-cat"><option value="">All categories</option></select>
+      <div class="grow"><input id="f-q" type="search" placeholder="Search vendor, note, sender…"></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Category</th><th>Vendor / from</th><th>Note</th><th>Method</th><th class="num">Amount</th><th></th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlg-entry">
+  <form method="dialog" id="form-entry">
+    <h3 id="entry-title">Add entry</h3>
+    <div class="fields">
+      <label>Type
+        <select name="kind"><option value="expense">Spent</option><option value="income">Received</option></select>
+      </label>
+      <label>Amount (Rp)<input name="amount" inputmode="numeric" required placeholder="15000000"></label>
+      <label>Category<select name="category"></select></label>
+      <label>Date<input name="paid_on" type="date"></label>
+      <label>Vendor / from<input name="party"></label>
+      <label>Method<input name="method" placeholder="Transfer BCA"></label>
+      <label class="full">Note<input name="note"></label>
+    </div>
+    <div class="dlg-actions">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-budgets">
+  <form method="dialog" id="form-budgets">
+    <h3>Budgets per category</h3>
+    <p class="meta" style="margin:0">Leave empty for no budget. Shorthand works: 80jt, 500rb.</p>
+    <div class="budget-list" id="budget-list"></div>
+    <div class="dlg-actions">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" value="save">Save budgets</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-settings">
+  <form method="dialog" id="form-settings">
+    <h3>Settings</h3>
+    <div class="fields">
+      <label class="full">Couple name<input name="couple" placeholder="Julio &amp; …"></label>
+      <label>Wedding date<input name="wedding_date" type="date"></label>
+      <label>Total budget (optional)<input name="total_budget" placeholder="Sum of categories"></label>
+    </div>
+    <div class="dlg-actions">
+      <button value="cancel" formnovalidate>Cancel</button>
+      <button class="primary" value="save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-confirm">
+  <form method="dialog">
+    <h3>Delete this entry?</h3>
+    <p class="meta" id="confirm-text" style="margin:0"></p>
+    <div class="dlg-actions">
+      <button value="cancel">Keep</button>
+      <button class="primary" value="ok" style="background:var(--critical)">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = new Intl.NumberFormat('id-ID');
+const rp = (n) => 'Rp ' + fmt.format(Math.round(n));
+const short = (n) => {
+  const a = Math.abs(n), s = n < 0 ? '−' : '';
+  if (a >= 1e9) return s + +(a / 1e9).toFixed(2) + ' M';
+  if (a >= 1e6) return s + +(a / 1e6).toFixed(1) + ' jt';
+  if (a >= 1e3) return s + Math.round(a / 1e3) + ' rb';
+  return s + a;
+};
+// Same shorthand the WhatsApp parser accepts
+const parseIdr = (v) => {
+  if (v == null) return NaN;
+  const m = String(v).trim().toLowerCase().replace(/^rp\.?\s*/, '').match(/^([\d.,]+)\s*(jt|juta|m|rb|ribu|k)?$/);
+  if (!m) return NaN;
+  const mult = { jt: 1e6, juta: 1e6, m: 1e6, rb: 1e3, ribu: 1e3, k: 1e3 }[m[2]] || 1;
+  if (mult > 1) return Math.round(parseFloat(m[1].replace(',', '.')) * mult);
+  return parseInt(m[1].replace(/[.,]/g, ''), 10);
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+let state = null;
+let filter = { kind: 'all', cat: '', q: '' };
+
+async function load() {
+  try {
+    const r = await fetch('/api/state');
+    state = await r.json();
+    $('#live').textContent = 'Live · updated ' + new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    render();
+  } catch {
+    $('#live').textContent = 'Offline — is the server running?';
+  }
+}
+
+function render() {
+  const s = state.summary;
+  const st = s.settings || {};
+  $('#title').textContent = st.couple || 'Our Wedding';
+  if (st.wedding_date) {
+    const days = Math.ceil((new Date(st.wedding_date + 'T00:00') - new Date()) / 864e5);
+    const d = new Date(st.wedding_date + 'T00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    $('#countdown').textContent = days > 0 ? `${d} · ${days} days to go` : days === 0 ? `${d} · today! 💍` : d;
+  } else $('#countdown').textContent = 'Set your wedding date in Settings';
+  renderKpis(s);
+  renderBars(s);
+  renderLine();
+  renderTable();
+}
+
+function renderKpis(s) {
+  const used = s.spentAgainstBudget ?? s.spent;
+  const pct = s.budget ? Math.min(100, (used / s.budget) * 100) : 0;
+  const over = s.budget && used > s.budget;
+  const scopeNote = s.budgetScope === 'categories' ? ' · budgeted categories only' : '';
+  $('#kpis').innerHTML = `
+    <div class="card kpi">
+      <div class="label">Spent so far</div>
+      <div class="value">${rp(s.spent)}</div>
+      <div class="foot">${s.expenseCount} payment${s.expenseCount === 1 ? '' : 's'}</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Remaining budget</div>
+      <div class="value">${s.budget ? rp(s.remaining) : '—'}</div>
+      ${s.budget ? `<div class="meter ${over ? 'over' : ''}" role="img" aria-label="${Math.round((used / s.budget) * 100)}% of budget used"><span style="width:${pct}%"></span></div>
+      <div class="foot">${over ? '<span class="status-critical">⚠ Over budget</span> · ' : ''}${Math.round((used / s.budget) * 100)}% of ${short(s.budget)} used${scopeNote}</div>`
+      : `<div class="foot">No budget yet — <a href="#" id="kpi-set-budget">set one</a></div>`}
+    </div>
+    <div class="card kpi">
+      <div class="label">Received (angpao &amp; family)</div>
+      <div class="value">${rp(s.income)}</div>
+      <div class="foot">${s.incomeCount} gift${s.incomeCount === 1 ? '' : 's'}</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Net out of pocket</div>
+      <div class="value">${rp(Math.max(0, s.spent - s.income))}</div>
+      <div class="foot">${s.income >= s.spent && s.spent > 0 ? '<span class="status-good">✓ Gifts cover spending</span>' : 'Spent minus received'}</div>
+    </div>`;
+  $('#kpi-set-budget')?.addEventListener('click', (e) => { e.preventDefault(); openBudgets(); });
+}
+
+function renderBars(s) {
+  const cats = new Map();
+  for (const b of s.budgets) cats.set(b.category, { category: b.category, budget: b.amount, spent: 0 });
+  for (const c of s.spentByCat) cats.set(c.category, { ...(cats.get(c.category) || { category: c.category, budget: 0 }), spent: c.spent });
+  const rows = [...cats.values()].sort((a, b) => b.spent - a.spent || b.budget - a.budget);
+  if (!rows.length) { $('#bars').innerHTML = '<div class="empty">No spending yet. Send "catering DP 15jt" to the WhatsApp group.</div>'; return; }
+  const maxBudgetless = Math.max(1, ...rows.filter((r) => !r.budget).map((r) => r.spent));
+  $('#bars').innerHTML = rows.map((r) => {
+    if (!r.budget) {
+      const w = (r.spent / maxBudgetless) * 100;
+      return `<div class="bar-row nobudget" title="${esc(r.category)}: ${rp(r.spent)} spent, no budget">
+        <div class="top"><span class="name">${esc(r.category)}</span><span class="nums">${short(r.spent)} <span class="meta">· no budget</span></span></div>
+        <div class="bar-track"><div class="bar-fill" style="width:${w}%;top:-5px;height:8px"></div></div></div>`;
+    }
+    const over = r.spent > r.budget;
+    const pct = Math.round((r.spent / r.budget) * 100);
+    return `<div class="bar-row ${over ? 'over' : ''}" title="${esc(r.category)}: ${rp(r.spent)} of ${rp(r.budget)}">
+      <div class="top"><span class="name">${esc(r.category)}${over ? `<span class="tag status-critical">⚠ +${short(r.spent - r.budget)} over</span>` : ''}</span>
+      <span class="nums">${short(r.spent)} / ${short(r.budget)} · ${pct}%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, pct)}%"></div></div>
+      ${r.category === 'Paket Bridal' && state.packageNote ? `<div class="meta" style="margin-top:4px">Termasuk: ${esc(state.packageNote.split(':').slice(1).join(':').trim())}</div>` : ''}</div>`;
+  }).join('');
+}
+
+function renderLine() {
+  const box = $('#line');
+  const entries = [...state.entries].sort((a, b) => a.paid_on.localeCompare(b.paid_on));
+  if (!entries.length) { box.innerHTML = '<div class="empty">The timeline appears after the first entry.</div>'; return; }
+
+  // Daily cumulative series
+  const days = [...new Set(entries.map((e) => e.paid_on))];
+  let cs = 0, ci = 0;
+  const pts = days.map((d) => {
+    for (const e of entries) if (e.paid_on === d) e.kind === 'expense' ? (cs += e.amount) : (ci += e.amount);
+    return { d, spent: cs, income: ci };
+  });
+  // A single day would draw a vertical line; start the series from zero the day before instead.
+  if (pts.length === 1) pts.unshift({ d: new Date(new Date(pts[0].d).getTime() - 864e5).toISOString().slice(0, 10), spent: 0, income: 0, synthetic: true });
+
+  const W = Math.max(320, box.clientWidth || 520), H = 240, m = { t: 14, r: 64, b: 28, l: 52 };
+  const t0 = new Date(pts[0].d).getTime(), t1 = Math.max(t0 + 864e5, new Date(pts.at(-1).d).getTime());
+  const yMax = niceMax(Math.max(...pts.map((p) => Math.max(p.spent, p.income))));
+  const x = (d) => m.l + ((new Date(d).getTime() - t0) / (t1 - t0)) * (W - m.l - m.r);
+  const y = (v) => H - m.b - (v / yMax) * (H - m.t - m.b);
+  const path = (k) => pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.d).toFixed(1)},${y(p[k]).toFixed(1)}`).join('');
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax);
+  const xt = [pts[0].d, pts[Math.floor((pts.length - 1) / 2)].d, pts.at(-1).d].filter((v, i, a) => a.indexOf(v) === i);
+  const dlab = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const last = pts.at(-1);
+  // Keep end labels from colliding
+  let ys = y(last.spent), yi = y(last.income);
+  if (Math.abs(ys - yi) < 14) { if (ys <= yi) { ys -= 7; yi += 7; } else { ys += 7; yi -= 7; } }
+
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Cumulative spent ${rp(last.spent)} and received ${rp(last.income)}">
+    ${ticks.map((v) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(${v === 0 ? '--axis' : '--grid'})" stroke-width="1"/>
+      <text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${short(v)}</text>`).join('')}
+    ${xt.map((d) => `<text x="${x(d)}" y="${H - 8}" text-anchor="middle">${dlab(d)}</text>`).join('')}
+    <path d="${path('income')}" fill="none" stroke="var(--series-2)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="${path('spent')}" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round"/>
+    <text x="${x(last.d) + 8}" y="${ys + 4}" style="fill:var(--ink-2)">${short(last.spent)}</text>
+    <text x="${x(last.d) + 8}" y="${yi + 4}" style="fill:var(--ink-2)">${short(last.income)}</text>
+    <line id="xh" y1="${m.t}" y2="${H - m.b}" stroke="var(--axis)" stroke-width="1" visibility="hidden"/>
+    <circle id="dot-s" r="4" fill="var(--series-1)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>
+    <circle id="dot-i" r="4" fill="var(--series-2)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>
+    <rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent" id="hit"/>
+  </svg><div class="tooltip" hidden></div>`;
+
+  const svg = box.querySelector('svg'), tip = box.querySelector('.tooltip');
+  const real = pts.filter((p) => !p.synthetic);
+  svg.querySelector('#hit').addEventListener('pointermove', (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.clientX - r.left) / r.width) * W;
+    const p = real.reduce((a, b) => (Math.abs(x(b.d) - px) < Math.abs(x(a.d) - px) ? b : a));
+    for (const [id, k] of [['#dot-s', 'spent'], ['#dot-i', 'income']]) {
+      const c = svg.querySelector(id); c.setAttribute('cx', x(p.d)); c.setAttribute('cy', y(p[k])); c.setAttribute('visibility', 'visible');
+    }
+    const xh = svg.querySelector('#xh'); xh.setAttribute('x1', x(p.d)); xh.setAttribute('x2', x(p.d)); xh.setAttribute('visibility', 'visible');
+    tip.hidden = false;
+    tip.innerHTML = `<div class="t">${new Date(p.d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+      <div class="r"><span class="sw" style="background:var(--series-1)"></span>Spent ${rp(p.spent)}</div>
+      <div class="r"><span class="sw" style="background:var(--series-2)"></span>Received ${rp(p.income)}</div>`;
+    const sx = (x(p.d) / W) * r.width;
+    tip.style.left = Math.min(r.width - tip.offsetWidth, Math.max(0, sx - tip.offsetWidth / 2)) + 'px';
+    tip.style.top = '0px';
+  });
+  svg.querySelector('#hit').addEventListener('pointerleave', () => {
+    tip.hidden = true;
+    for (const id of ['#xh', '#dot-s', '#dot-i']) svg.querySelector(id).setAttribute('visibility', 'hidden');
+  });
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1e6;
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const k of [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (k * p >= v) return k * p;
+  return 10 * p;
+}
+
+function renderTable() {
+  const sel = $('#f-cat');
+  const all = [...state.categories.expense, ...state.categories.income];
+  if (sel.options.length !== all.length + 1) {
+    sel.innerHTML = '<option value="">All categories</option>' + all.map((c) => `<option>${esc(c)}</option>`).join('');
+    sel.value = filter.cat;
+  }
+  const q = filter.q.toLowerCase();
+  const rows = state.entries.filter((e) =>
+    (filter.kind === 'all' || e.kind === filter.kind) &&
+    (!filter.cat || e.category === filter.cat) &&
+    (!q || [e.party, e.note, e.sender, e.method, e.category, e.raw].some((v) => v && v.toLowerCase().includes(q))));
+  if (!rows.length) { $('#rows').innerHTML = `<tr><td colspan="8" class="empty">${state.entries.length ? 'No entries match the filter.' : 'No entries yet.'}</td></tr>`; return; }
+  $('#rows').innerHTML = rows.map((e) => `<tr>
+    <td style="white-space:nowrap">${new Date(e.paid_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+      <div class="meta">${esc(e.sender || '')}</div></td>
+    <td><span class="pill">${esc(e.category)}</span></td>
+    <td>${esc(e.party || '—')}</td>
+    <td>${esc(e.note || '')}${e.raw && e.raw !== e.note ? `<div class="meta" title="Original message">“${esc(e.raw.slice(0, 80))}${e.raw.length > 80 ? '…' : ''}”</div>` : ''}</td>
+    <td class="meta">${esc(e.method || '')}</td>
+    <td class="num ${e.kind === 'income' ? 'amt-in' : ''}">${e.kind === 'income' ? '+' : ''}${rp(e.amount)}</td>
+    <td>${e.receipt ? (e.receipt.endsWith('.pdf')
+        ? `<a href="/receipts/${encodeURIComponent(e.receipt)}" target="_blank" class="pill">PDF</a>`
+        : `<a href="/receipts/${encodeURIComponent(e.receipt)}" target="_blank"><img class="thumb" src="/receipts/${encodeURIComponent(e.receipt)}" alt="Receipt"></a>`) : ''}</td>
+    <td class="row-actions"><button class="ghost" data-edit="${e.id}" title="Edit">✎</button><button class="ghost" data-del="${e.id}" title="Delete">✕</button></td>
+  </tr>`).join('');
+}
+
+// ---------- interactions ----------
+document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => {
+  filter.kind = b.dataset.kind;
+  document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  renderTable();
+}));
+$('#f-cat').addEventListener('change', (e) => { filter.cat = e.target.value; renderTable(); });
+$('#f-q').addEventListener('input', (e) => { filter.q = e.target.value; renderTable(); });
+
+const api = (url, method, body) => fetch(url, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json());
+
+let editingId = null;
+function fillCategoryOptions(kind, value) {
+  const f = $('#form-entry');
+  const list = kind === 'income' ? state.categories.income : state.categories.expense;
+  f.category.innerHTML = list.map((c) => `<option>${esc(c)}</option>`).join('');
+  f.category.value = list.includes(value) ? value : list[0];
+}
+function openEntry(entry) {
+  const f = $('#form-entry');
+  editingId = entry?.id ?? null;
+  $('#entry-title').textContent = entry ? 'Edit entry' : 'Add entry';
+  f.kind.value = entry?.kind || 'expense';
+  fillCategoryOptions(f.kind.value, entry?.category);
+  f.amount.value = entry?.amount ?? '';
+  f.paid_on.value = entry?.paid_on || new Date().toLocaleDateString('en-CA');
+  f.party.value = entry?.party || '';
+  f.method.value = entry?.method || '';
+  f.note.value = entry?.note || '';
+  $('#dlg-entry').showModal();
+}
+$('#form-entry').kind.addEventListener('change', (e) => fillCategoryOptions(e.target.value));
+$('#btn-add').addEventListener('click', () => openEntry(null));
+$('#dlg-entry').addEventListener('close', async () => {
+  if ($('#dlg-entry').returnValue !== 'save') return;
+  const f = $('#form-entry');
+  const amount = parseIdr(f.amount.value);
+  if (!(amount > 0)) return;
+  const body = { kind: f.kind.value, amount, category: f.category.value, paid_on: f.paid_on.value, party: f.party.value || null, method: f.method.value || null, note: f.note.value || null };
+  if (editingId) await api(`/api/entries/${editingId}`, 'PATCH', body);
+  else await api('/api/entries', 'POST', body);
+  load();
+});
+
+let deletingId = null;
+$('#rows').addEventListener('click', (ev) => {
+  const edit = ev.target.closest('[data-edit]'), del = ev.target.closest('[data-del]');
+  if (edit) openEntry(state.entries.find((e) => e.id === Number(edit.dataset.edit)));
+  if (del) {
+    const e = state.entries.find((x) => x.id === Number(del.dataset.del));
+    deletingId = e.id;
+    $('#confirm-text').textContent = `${rp(e.amount)} — ${e.category}${e.party ? ' · ' + e.party : ''}`;
+    $('#dlg-confirm').showModal();
+  }
+});
+$('#dlg-confirm').addEventListener('close', async () => {
+  if ($('#dlg-confirm').returnValue === 'ok' && deletingId) { await api(`/api/entries/${deletingId}`, 'DELETE'); load(); }
+  deletingId = null;
+});
+
+function openBudgets() {
+  const budgets = Object.fromEntries(state.summary.budgets.map((b) => [b.category, b.amount]));
+  $('#budget-list').innerHTML = state.categories.expense.map((c) =>
+    `<label>${esc(c)}<input data-cat="${esc(c)}" value="${budgets[c] ? short(budgets[c]).replace(' ', '') : ''}" placeholder="e.g. 50jt"></label>`).join('');
+  $('#dlg-budgets').showModal();
+}
+$('#btn-budgets').addEventListener('click', openBudgets);
+$('#dlg-budgets').addEventListener('close', async () => {
+  if ($('#dlg-budgets').returnValue !== 'save') return;
+  const current = Object.fromEntries(state.summary.budgets.map((b) => [b.category, b.amount]));
+  const jobs = [];
+  for (const input of $('#budget-list').querySelectorAll('input')) {
+    const cat = input.dataset.cat;
+    const v = input.value.trim() ? parseIdr(input.value) : 0;
+    if (Number.isNaN(v)) continue;
+    // short() rounds for display, so only write when the user actually changed the field
+    if (input.value.trim() === (current[cat] ? short(current[cat]).replace(' ', '') : '')) continue;
+    jobs.push(api(`/api/budgets/${encodeURIComponent(cat)}`, 'PUT', { amount: v }));
+  }
+  await Promise.all(jobs);
+  load();
+});
+
+$('#btn-settings').addEventListener('click', () => {
+  const f = $('#form-settings'), st = state.summary.settings || {};
+  f.couple.value = st.couple || '';
+  f.wedding_date.value = st.wedding_date || '';
+  f.total_budget.value = st.total_budget ? short(Number(st.total_budget)).replace(' ', '') : '';
+  $('#dlg-settings').showModal();
+});
+$('#dlg-settings').addEventListener('close', async () => {
+  if ($('#dlg-settings').returnValue !== 'save') return;
+  const f = $('#form-settings');
+  const st = state.summary.settings || {};
+  const tbInput = f.total_budget.value.trim();
+  const tbUnchanged = tbInput === (st.total_budget ? short(Number(st.total_budget)).replace(' ', '') : '');
+  const body = { couple: f.couple.value.trim(), wedding_date: f.wedding_date.value };
+  if (!tbUnchanged) body.total_budget = tbInput ? parseIdr(tbInput) || '' : '';
+  await api('/api/settings', 'PUT', body);
+  load();
+});
+
+// ---------- WhatsApp link status ----------
+let waTimer = null;
+async function loadWa() {
+  let st;
+  try { st = await (await fetch('/api/wa-status')).json(); } catch { return; }
+  const banner = $('#wa-banner'), pill = $('#wa-pill');
+  pill.hidden = st.state === 'off';
+  pill.classList.toggle('wa-off', st.state !== 'ready');
+  pill.textContent = st.state === 'ready' ? `WhatsApp linked${st.me ? ' · ' + st.me : ''}` : st.state === 'qr' ? 'WhatsApp not linked' : `WhatsApp ${st.state}`;
+  if (st.state === 'qr' && st.qr) {
+    banner.hidden = false;
+    banner.innerHTML = `<img src="${st.qr}" alt="WhatsApp link QR code">
+      <div><h2>Link WhatsApp</h2>
+        <ol><li>On the phone whose WhatsApp should run the bot, open <b>Settings → Linked devices → Link a device</b></li>
+        <li>Scan this code</li>
+        <li>Send <b>help</b> in the <b>${esc(st.target)}</b> group</li></ol>
+        <p class="meta">The code refreshes every ~20 seconds; this page updates it automatically.</p></div>`;
+  } else if (st.state === 'error' || st.state === 'disconnected') {
+    banner.hidden = false;
+    banner.innerHTML = `<div><h2>WhatsApp ${esc(st.state)}</h2><p class="meta">${esc(st.error || '')} — a new QR code will appear here shortly.</p></div>`;
+  } else banner.hidden = true;
+  clearTimeout(waTimer);
+  waTimer = setTimeout(loadWa, st.state === 'ready' || st.state === 'off' ? 30000 : 4000);
+}
+loadWa();
+
+window.addEventListener('resize', () => state && renderLine());
+load();
+setInterval(() => { if (!document.querySelector('dialog[open]')) load(); }, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "wedding-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Wedding budget tracker fed from WhatsApp, with a local dashboard",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dashboard": "node --env-file-if-exists=.env src/index.js --no-whatsapp",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.131.0",
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.7"
+  }
+}
