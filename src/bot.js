@@ -2,6 +2,7 @@ import pkg from 'whatsapp-web.js';
 import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import { writeFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { handleMessage } from './handler.js';
 import { RECEIPTS_DIR, claimMessage, getSettings, setSetting } from './db.js';
@@ -33,6 +34,15 @@ function withTimeout(promise, ms, label = 'call') {
     promise,
     new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms); }),
   ]).finally(() => clearTimeout(timer));
+}
+
+// A browser that didn't close (crash, network drop, destroy() timing out) keeps the session profile
+// open; a new launch on the same profile then hangs forever. Kill any such leftovers first.
+function killOrphanBrowsers(dir) {
+  try {
+    execFileSync('pkill', ['-9', '-f', `user-data-dir=${dir}`], { stdio: 'ignore' });
+    console.log('[wa] killed leftover browser(s) using the session');
+  } catch { /* exit 1 = nothing to kill, or pkill unavailable */ }
 }
 
 // Chromium leaves Singleton* lock files in its profile when a container is killed; a restart then
@@ -69,6 +79,7 @@ export async function stopBot() {
   const c = client;
   client = null;
   if (c) await withTimeout(c.destroy(), 15000, 'destroy').catch((err) => console.error('[wa] destroy on shutdown failed:', err.message));
+  try { c?.pupBrowser?.process()?.kill('SIGKILL'); } catch { /* already gone */ }
 }
 
 export function startBot() {
@@ -95,6 +106,7 @@ async function restart(reason) {
   const old = client;
   client = null;
   try { if (old) await withTimeout(old.destroy(), 20000, 'destroy'); } catch (err) { console.error('[wa] destroy failed:', err.message); }
+  try { old?.pupBrowser?.process()?.kill('SIGKILL'); } catch { /* already gone */ }
   await sleep(delay);
   restarting = false;
   launch();
@@ -102,13 +114,13 @@ async function restart(reason) {
 
 function launch() {
   const executablePath = process.env.CHROME_PATH || (existsSync(CHROME_DEFAULT) ? CHROME_DEFAULT : undefined);
+  killOrphanBrowsers(SESSION_DIR);
   clearChromeLocks(SESSION_DIR);
   const c = new Client({
     authStrategy: new LocalAuth({ dataPath: SESSION_DIR }),
     puppeteer: {
       headless: true,
       executablePath,
-      protocolTimeout: 60000,
       // Low-memory profile: WhatsApp Web is one tab, so drop per-site processes and background features.
       args: [
         '--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote',
@@ -150,6 +162,7 @@ function launch() {
     }
     if (!chatId.endsWith('@g.us')) return false;
     if (chatId === groupId) return true;
+    if (groupId) return false; // we already know our group; other groups are simply not ours
     if (Date.now() - (lastLookup.get(chatId) || 0) > 60_000) {
       lastLookup.set(chatId, Date.now());
       await resolveGroup(c, `message from ${chatId}`);
